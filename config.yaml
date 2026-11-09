@@ -1,0 +1,69 @@
+# Non-secret settings. Validated at start-up by anvil.config.Settings.
+# Any value can be overridden with an env var: ANVIL__<SECTION>__<KEY>, e.g.
+#   ANVIL__AGENT__MAX_STEPS=5
+# Secrets (API keys) live only in the environment / .env; see .env.example.
+
+providers:
+  groq:
+    base_url: https://api.groq.com/openai/v1
+    api_key_env: GROQ_API_KEY
+  openrouter:
+    base_url: https://openrouter.ai/api/v1
+    api_key_env: OPENROUTER_API_KEY
+
+# Each role is an ordered fallback chain. Roles map to separate Groq rate-limit
+# buckets (8k tokens/min each on the free tier), so cheap steps do not starve `main`.
+models:
+  main:   # the agent loop; 20b is a separate Groq rate-limit bucket, so it is the first fallback
+    - { provider: groq, model: openai/gpt-oss-120b }
+    - { provider: groq, model: openai/gpt-oss-20b }
+    - { provider: openrouter, model: openrouter/free }
+  fast:   # planning
+    - { provider: groq, model: openai/gpt-oss-20b }
+    - { provider: openrouter, model: openrouter/free }
+  judge:  # evaluation only; deliberately a different model family from `main`
+    - { provider: groq, model: qwen/qwen3.8-27b }
+
+llm:
+  timeout_seconds: 60
+  temperature: 0
+  # On failure the next endpoint in the chain is tried at once. Only when the whole chain
+  # failed with retryable errors (429/5xx/timeout) do we wait (Retry-After or back-off,
+  # capped) and walk it again, up to `retry_rounds` more times.
+  retry_rounds: 2
+  max_retry_wait_seconds: 30
+
+# USD per 1M tokens (list prices, console.groq.com/docs/models, 2026-11-09).
+# Used to report cost-equivalent in evals; the free tier itself costs nothing.
+pricing:
+  openai/gpt-oss-120b: { input: 0.15, output: 0.60 }
+  openai/gpt-oss-20b: { input: 0.075, output: 0.30 }
+  qwen/qwen3.8-27b: { input: 0.80, output: 4.00 }
+
+agent:
+  max_steps: 12
+  planner: false            # off by default: see README "Evaluation" for the ablation
+  wrap_tool_output: true
+  prompts: { system: v1, planner: v1, judge: v1 }
+
+tools:
+  max_output_chars: 10000
+  run_timeout_seconds: 30
+
+workspace:
+  template: examples/calculator   # copied per API session / eval task
+  root: .workspaces               # where those copies live
+
+memory:
+  max_turns: 10
+  max_sessions: 100
+  ttl_seconds: 3600
+
+api:
+  require_auth: true        # needs ANVIL_API_KEY in the environment
+
+tracing:
+  dir: logs/traces
+
+logging:
+  level: INFO
