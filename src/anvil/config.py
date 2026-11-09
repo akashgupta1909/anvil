@@ -48,25 +48,30 @@ class Price(_Section):
 
 
 class PromptVersions(_Section):
-    system: str = "v1"
+    system: str = "v2"
     planner: str = "v1"
-    judge: str = "v1"
+    judge: str = "v2"
 
 
 class AgentSettings(_Section):
     max_steps: PositiveInt = 12
     planner: bool = False
     wrap_tool_output: bool = True
+    keep_tool_outputs: PositiveInt | None = 5  # observation masking; None = keep all
+    tools: list[str] | None = None  # enabled tool names; None = all
     prompts: PromptVersions = PromptVersions()
 
 
 class ToolSettings(_Section):
     max_output_chars: PositiveInt = 10_000
-    run_timeout_seconds: float = Field(default=30, gt=0)
+    command_timeout_seconds: float = Field(default=60, gt=0)
+    # run_command allowlist: program name the model uses -> argv actually run
+    # ("python" in the argv means the agent's own interpreter).
+    commands: dict[str, list[str]] = {"python": ["python"]}
 
 
 class WorkspaceSettings(_Section):
-    template: Path = Path("examples/calculator")
+    template: Path = Path("examples/inventory")
     root: Path = Path(".workspaces")
 
 

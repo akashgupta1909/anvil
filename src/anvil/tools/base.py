@@ -10,6 +10,7 @@ the model so it can correct itself.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol
 
@@ -36,7 +37,8 @@ class ToolContext:
     workspace: Workspace
     approver: Approver
     max_output_chars: int
-    run_timeout_seconds: float
+    # Workspace text files at the start of the run, for diffs and change reports.
+    baseline: Mapping[str, str] = field(default_factory=lambda: dict[str, str]())
     # Tools denied once in this run: withdrawn from the model and refused without asking
     # again (models tend to retry denied actions until they run out of steps).
     denied: set[str] = field(default_factory=lambda: set[str]())
@@ -44,7 +46,7 @@ class ToolContext:
 
 class Tool[ArgsT: BaseModel](ABC):
     name: ClassVar[str]
-    description: ClassVar[str]
+    description: str  # may be set per instance, e.g. to list configured options
     side_effects: ClassVar[bool] = False  # writes files / executes code -> needs approval
     args_model: type[ArgsT]
 
@@ -68,6 +70,15 @@ def truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return f"{text[:limit]}\n[... truncated: showing {limit} of {len(text)} characters]"
+
+
+def truncate_middle(text: str, limit: int) -> str:
+    """Keep the start and the end (where errors and test summaries usually are)."""
+    if len(text) <= limit:
+        return text
+    half = limit // 2
+    omitted = len(text) - 2 * half
+    return f"{text[:half]}\n[... {omitted} characters omitted ...]\n{text[-half:]}"
 
 
 def _drop_titles(schema: dict[str, Any]) -> dict[str, Any]:

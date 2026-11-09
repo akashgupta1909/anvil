@@ -29,6 +29,7 @@ dependencies = [
     { name = "openai" },
     { name = "pydantic" },
     { name = "pydantic-settings", extra = ["yaml"] },
+    { name = "pytest" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "sse-starlette" },
@@ -39,7 +40,6 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "pyright" },
-    { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
 ]
@@ -50,6 +50,7 @@ requires-dist = [
     { name = "openai", specifier = ">=3.46,<4" },
     { name = "pydantic", specifier = ">=2.14,<3" },
     { name = "pydantic-settings", extras = ["yaml"], specifier = ">=2.16,<3" },
+    { name = "pytest", specifier = ">=9.2" },
     { name = "python-dotenv", specifier = ">=1.1,<2" },
     { name = "pyyaml", specifier = ">=6.0,<7" },
     { name = "sse-starlette", specifier = ">=3.7,<4" },
@@ -60,7 +61,6 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.28" },
     { name = "pyright", specifier = ">=1.1.414" },
-    { name = "pytest", specifier = ">=9.2" },
     { name = "pytest-asyncio", specifier = ">=1.4" },
     { name = "ruff", specifier = ">=0.17" },
 ]

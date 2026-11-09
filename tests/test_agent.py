@@ -1,4 +1,4 @@
-from anvil.agents.coding_agent import CodingAgent
+from anvil.agents.coding_agent import CodingAgent, mask_old_tool_outputs
 from anvil.agents.planner import Planner
 from anvil.config import AgentSettings
 from anvil.llm.client import LLMUnavailableError
@@ -34,7 +34,9 @@ async def test_answers_without_tools(workspace: Workspace) -> None:
 
 
 async def test_tool_loop_feeds_wrapped_output_back(workspace: Workspace) -> None:
-    llm = FakeLLM([reply(None, ("read_file", '{"path": "main.py"}')), reply("It is a calculator.")])
+    llm = FakeLLM(
+        [reply(None, ("read_file", '{"path": "inventory/cli.py"}')), reply("It is the CLI.")]
+    )
     result = await agent(llm).run("what is main.py?", make_ctx(workspace))
     assert result.status is RunStatus.COMPLETED
     assert result.steps == 2
@@ -90,7 +92,7 @@ async def test_model_mistakes_do_not_crash_the_loop(workspace: Workspace) -> Non
 
 
 async def test_denied_tool_is_withdrawn_for_the_rest_of_the_run(workspace: Workspace) -> None:
-    write = ("write_file", '{"path": "main.py", "content": "x"}')
+    write = ("write_file", '{"path": "inventory/cli.py", "content": "x"}')
     llm = FakeLLM([reply(None, write), reply(None, write), reply("I could not.")])
     asked: list[str] = []
 
@@ -106,7 +108,7 @@ async def test_denied_tool_is_withdrawn_for_the_rest_of_the_run(workspace: Works
     offered = [{t["function"]["name"] for t in tools or []} for tools in llm.tools_seen]
     assert "write_file" in offered[0]
     assert "write_file" not in offered[1]
-    assert "Calculator" in (workspace.root / "main.py").read_text()
+    assert "argparse" in (workspace.root / "inventory/cli.py").read_text()
 
 
 async def test_history_is_sent_before_the_task(workspace: Workspace) -> None:
@@ -139,3 +141,27 @@ async def test_planner_failure_fails_open(workspace: Workspace) -> None:
     assert result.status is RunStatus.COMPLETED
     assert result.plan is None
     assert main.requests[0][-1].content == "task"
+
+
+def test_masking_keeps_recent_tool_outputs_only() -> None:
+    from anvil.models import Message, ToolCall
+
+    messages = [Message(role="user", content="task")]
+    for i in range(4):
+        call = ToolCall(id=f"c{i}", name="read_file", arguments=f'{{"path": "f{i}.py"}}')
+        messages.append(Message(role="assistant", tool_calls=[call]))
+        messages.append(Message(role="tool", content=f"content {i}", tool_call_id=f"c{i}"))
+    view = mask_old_tool_outputs(messages, keep=2)
+    outputs = [m.content or "" for m in view if m.role == "tool"]
+    assert outputs[2:] == ["content 2", "content 3"]
+    assert outputs[0].startswith('[Output of read_file {"path": "f0.py"} omitted')
+    assert messages[2].content == "content 0"  # history itself is untouched
+    assert mask_old_tool_outputs(messages, keep=None) == messages
+
+
+async def test_agent_sends_masked_history(workspace: Workspace) -> None:
+    script = [reply(None, ("list_files", "{}")) for _ in range(3)] + [reply("done")]
+    llm = FakeLLM(script)
+    await agent(llm, keep_tool_outputs=1).run("x", make_ctx(workspace))
+    last_request_tools = [m.content or "" for m in llm.requests[-1] if m.role == "tool"]
+    assert [c.startswith("[Output of") for c in last_request_tools] == [True, True, False]

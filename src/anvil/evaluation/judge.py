@@ -18,6 +18,11 @@ from anvil.prompts import render, wrap_data
 
 logger = logging.getLogger(__name__)
 
+# Evidence budget: per-call argument preview, all calls, and the answer.
+_ARGS_CHARS = 200
+_CALLS_CHARS = 4000
+_ANSWER_CHARS = 6000
+
 
 class Verdict(BaseModel):
     passed: bool
@@ -32,16 +37,18 @@ class Judge:
     async def grade(self, task: str, rubric: str, result: AgentResult) -> Verdict | None:
         """Returns None if the judge could not produce a verdict (fails open to 'ungraded',
         never to 'passed')."""
-        calls = [
-            {"tool": c.name, "arguments": c.arguments, "ok": c.ok, "error": c.error}
+        calls = "\n".join(
+            f"{c.name} {json.dumps(c.arguments)[:_ARGS_CHARS]} -> "
+            + ("ok" if c.ok else f"error: {c.error}")
             for c in result.tool_calls
-        ]
+        )
         user = "\n\n".join(
             [
                 wrap_data("task", task),
                 f"Rubric: {rubric}",
-                wrap_data("tool_calls", json.dumps(calls)[:4000]),
-                wrap_data("answer", result.answer[:6000]),
+                wrap_data("tool_calls", calls[:_CALLS_CHARS] or "(none)"),
+                f"Files changed: {', '.join(result.changed_files) or 'none'}",
+                wrap_data("answer", result.answer[:_ANSWER_CHARS]),
             ]
         )
         messages = [

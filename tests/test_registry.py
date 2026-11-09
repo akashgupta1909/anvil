@@ -20,10 +20,10 @@ def call(name: str, arguments: str) -> ToolCall:
 
 
 async def test_success(registry: ToolRegistry, workspace: Workspace) -> None:
-    out = await registry.execute(call("read_file", '{"path": "main.py"}'), make_ctx(workspace))
+    out = await registry.execute(call("read_file", '{"path": "README.md"}'), make_ctx(workspace))
     assert out.record.ok
-    assert out.record.arguments == {"path": "main.py"}
-    assert "Calculator" in out.content
+    assert out.record.arguments == {"path": "README.md"}
+    assert "inventory" in out.content
 
 
 @pytest.mark.parametrize(
@@ -32,7 +32,7 @@ async def test_success(registry: ToolRegistry, workspace: Workspace) -> None:
         ("delete_everything", "{}", "unknown_tool"),
         ("read_file", '{"path": ', "bad_arguments"),
         ("read_file", "{}", "bad_arguments"),
-        ("read_file", '{"path": "main.py", "extra": 1}', "bad_arguments"),
+        ("read_file", '{"path": "README.md", "extra": 1}', "bad_arguments"),
         ("read_file", '{"path": "../x"}', "tool_error"),
     ],
 )

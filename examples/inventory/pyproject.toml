@@ -1,0 +1,9 @@
+[project]
+name = "inventory"
+version = "1.0.0"
+description = "Small inventory management package used as the sample workspace for anvil."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

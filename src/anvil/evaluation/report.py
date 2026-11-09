@@ -77,6 +77,8 @@ def render_report(
 ) -> str:
     by_variant = {v: [r for r in records if r.variant == v] for v in variants}
     summaries = {v: summarise(rs) for v, rs in by_variant.items() if rs}
+    if not summaries:
+        return "# Evaluation report\n\nNo runs.\n"
     metrics = list(next(iter(summaries.values())))
     lines = ["# Evaluation report", ""]
     judge_models = ", ".join(m.model for m in models.get("judge", []))
@@ -95,6 +97,8 @@ def render_report(
             runs = [r for r in by_variant[variant] if r.task_id == task_id]
             cells.append(f"{sum(r.success for r in runs)}/{len(runs)}")
         lines.append(f"| {task_id} | " + " | ".join(cells) + " |")
+
+    lines += _ablation_sections(by_variant)
 
     judged = [r for r in records if r.judge_passed is not None]
     if judged:
@@ -123,3 +127,36 @@ def render_report(
                 f"- **{r.variant} / {r.task_id}** (trace {r.request_id}): " + "; ".join(reasons)
             )
     return "\n".join(lines) + "\n"
+
+
+_COMPARED = (
+    "Task success",
+    "Tool-call correct",
+    "Avg steps",
+    "Avg tokens (in/out)",
+    "Latency p50 / p95 (s)",
+    "Cost / task (list price)",
+)
+
+
+def _ablation_sections(by_variant: dict[str, list[RunRecord]]) -> list[str]:
+    """Each variant against baseline on the same tasks (variants may run a subset)."""
+    baseline = by_variant.get("baseline", [])
+    lines: list[str] = []
+    for variant, runs in by_variant.items():
+        if variant == "baseline" or not runs or not baseline:
+            continue
+        task_ids = {r.task_id for r in runs}
+        same = [r for r in baseline if r.task_id in task_ids]
+        if not same:
+            continue
+        a, b = summarise(same), summarise(runs)
+        lines += [
+            "",
+            f"## Ablation: {variant} vs baseline ({len(task_ids)} tasks)",
+            "",
+            f"| Metric | baseline | {variant} |",
+            "|---|---|---|",
+        ]
+        lines += [f"| {m} | {a[m]} | {b[m]} |" for m in _COMPARED]
+    return lines

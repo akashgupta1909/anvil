@@ -17,6 +17,7 @@ from anvil.config import Settings
 from anvil.memory.sessions import Session, SessionStore, Turn
 from anvil.models import AgentEvent, AgentResult, FinalEvent, RunStatus
 from anvil.tools.base import Approver, ToolContext
+from anvil.tools.changes import changed_files
 from anvil.tools.workspace import Workspace, WorkspaceManager
 from anvil.utils.tracing import Trace, TraceSink, activate
 
@@ -101,7 +102,7 @@ class AgentService:
             workspace=workspace,
             approver=approver,
             max_output_chars=self._settings.tools.max_output_chars,
-            run_timeout_seconds=self._settings.tools.run_timeout_seconds,
+            baseline=workspace.snapshot(),
         )
         history = session.history(self._settings.memory.max_turns) if session else []
         try:
@@ -111,6 +112,9 @@ class AgentService:
                     trace.span("invoke_agent", **{"gen_ai.agent.name": "coding"}),
                 ):
                     async for event in self.agent.run_stream(task, ctx, history):
+                        if isinstance(event, FinalEvent):
+                            event.result.changed_files = changed_files(workspace, ctx.baseline)
+                            trace.attributes.update(changed_files=event.result.changed_files)
                         if (
                             isinstance(event, FinalEvent)
                             and session

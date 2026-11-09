@@ -42,6 +42,27 @@ logger = logging.getLogger(__name__)
 _EVENT_PREVIEW_CHARS = 2000
 
 
+def mask_old_tool_outputs(messages: Sequence[Message], keep: int | None) -> list[Message]:
+    """Observation masking: keep the last ``keep`` tool outputs verbatim and replace older
+    ones with a one-line placeholder. Tool output dominates an agent's context and is
+    re-sent on every step; the model can re-run a tool if it needs an old result.
+    The full history is kept; only the copy sent to the model is masked."""
+    tool_indexes = [i for i, m in enumerate(messages) if m.role == "tool"]
+    if keep is None or len(tool_indexes) <= keep:
+        return list(messages)
+    masked = set(tool_indexes[: len(tool_indexes) - keep])
+    calls = {c.id: c for m in messages for c in m.tool_calls}
+    view: list[Message] = []
+    for i, message in enumerate(messages):
+        if i in masked:
+            call = calls.get(message.tool_call_id or "")
+            what = f"{call.name} {call.arguments[:120]}" if call else "an earlier tool call"
+            placeholder = f"[Output of {what} omitted to save context; call it again if needed.]"
+            message = message.model_copy(update={"content": placeholder})
+        view.append(message)
+    return view
+
+
 class CodingAgent:
     def __init__(
         self,
@@ -119,7 +140,8 @@ class CodingAgent:
             reply: ChatResult | None = None
             tools = self._registry.schemas(exclude=ctx.denied)
             try:
-                async for chunk in self._llm.stream(messages, tools=tools):
+                view = mask_old_tool_outputs(messages, self._settings.keep_tool_outputs)
+                async for chunk in self._llm.stream(view, tools=tools):
                     if isinstance(chunk, str):
                         yield TextDeltaEvent(step=step, text=chunk)
                     else:

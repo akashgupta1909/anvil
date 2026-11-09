@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
+from typing import Any
 
 from openai import AsyncOpenAI
 
@@ -18,9 +19,12 @@ from anvil.config import ModelRole, Settings
 from anvil.llm.client import ChatModel, Endpoint, FallbackLLM
 from anvil.memory.sessions import InMemorySessionStore
 from anvil.service import AgentService
-from anvil.tools.filesystem import ListFiles, ReadFile, WriteFile
-from anvil.tools.python_runner import RunPythonFile
+from anvil.tools.base import Tool
+from anvil.tools.changes import ShowChanges
+from anvil.tools.commands import RunCommand
+from anvil.tools.filesystem import EditFile, ListFiles, ReadFile, WriteFile
 from anvil.tools.registry import ToolRegistry
+from anvil.tools.search import FindFiles, SearchCode
 from anvil.tools.workspace import WorkspaceManager
 from anvil.utils.tracing import TraceSink
 
@@ -66,13 +70,34 @@ def build_llm(settings: Settings, role: ModelRole) -> FallbackLLM:
     )
 
 
+def build_tools(settings: Settings) -> list[Tool[Any]]:
+    """Every available tool, filtered by ``agent.tools`` if set. Add new tools here."""
+    tools: list[Tool[Any]] = [
+        ListFiles(),
+        FindFiles(),
+        SearchCode(),
+        ReadFile(),
+        EditFile(),
+        WriteFile(),
+        ShowChanges(),
+        RunCommand(settings.tools.commands, settings.tools.command_timeout_seconds),
+    ]
+    enabled = settings.agent.tools
+    if enabled is None:
+        return tools
+    unknown = set(enabled) - {t.name for t in tools}
+    if unknown:
+        raise ValueError(f"agent.tools: unknown tool(s) {sorted(unknown)}")
+    return [t for t in tools if t.name in enabled]
+
+
 def build_container(
     settings: Settings, llms: dict[ModelRole, ChatModel] | None = None
 ) -> Container:
     """Wire the application. ``llms`` replaces the real clients (tests use fakes)."""
     if llms is None:
         llms = {role: build_llm(settings, role) for role in ("main", "fast", "judge")}
-    registry = ToolRegistry([ListFiles(), ReadFile(), WriteFile(), RunPythonFile()])
+    registry = ToolRegistry(build_tools(settings))
     workspaces = WorkspaceManager(settings.workspace.template, settings.workspace.root)
     planner = (
         Planner(llms["fast"], registry, settings.agent.prompts.planner)

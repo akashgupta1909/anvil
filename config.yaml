@@ -41,17 +41,24 @@ pricing:
   qwen/qwen3.8-27b: { input: 0.80, output: 4.00 }
 
 agent:
-  max_steps: 12
+  max_steps: 20
   planner: false            # off by default: see README "Evaluation" for the ablation
   wrap_tool_output: true
-  prompts: { system: v1, planner: v1, judge: v1 }
+  keep_tool_outputs: 5      # older tool outputs are masked in the prompt; null keeps all
+  tools: null               # all tools; or a list of names to enable a subset
+  prompts: { system: v2, planner: v1, judge: v2 }
 
 tools:
   max_output_chars: 10000
-  run_timeout_seconds: 30
+  command_timeout_seconds: 60
+  # run_command allowlist (no shell): name the model uses -> argv that runs.
+  # "python" in an argv means the agent's own interpreter.
+  commands:
+    python: [python]
+    pytest: [python, -m, pytest, -p, no:cacheprovider]
 
 workspace:
-  template: examples/calculator   # copied per API session / eval task
+  template: examples/inventory    # copied per API session / eval task
   root: .workspaces               # where those copies live
 
 memory:

@@ -1,0 +1,15 @@
+{
+  "products": [
+    {"sku": "BOLT-M6", "name": "M6 hex bolt (box of 100)", "unit_price": 7.49, "reorder_level": 20, "category": "fasteners"},
+    {"sku": "DRILL-18V", "name": "18V cordless drill", "unit_price": 89.0, "reorder_level": 3, "category": "tools"},
+    {"sku": "GLOVE-L", "name": "Work gloves size L", "unit_price": 6.75, "reorder_level": 10, "category": "safety"}
+  ],
+  "movements": [
+    {"sku": "BOLT-M6", "kind": "receive", "quantity": 60, "on": "2026-10-01", "note": "PO-1001"},
+    {"sku": "BOLT-M6", "kind": "ship", "quantity": 35, "on": "2026-10-12", "note": "SO-2001"},
+    {"sku": "DRILL-18V", "kind": "receive", "quantity": 8, "on": "2026-10-02", "note": "PO-1002"},
+    {"sku": "DRILL-18V", "kind": "ship", "quantity": 5, "on": "2026-10-20", "note": "SO-2002"},
+    {"sku": "GLOVE-L", "kind": "receive", "quantity": 40, "on": "2026-10-03", "note": "PO-1003"},
+    {"sku": "GLOVE-L", "kind": "ship", "quantity": 12, "on": "2026-10-15", "note": "SO-2003"}
+  ]
+}

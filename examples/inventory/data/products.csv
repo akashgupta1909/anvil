@@ -1,0 +1,6 @@
+sku,name,unit_price,reorder_level,category
+BOLT-M6,M6 hex bolt (box of 100),7.49,20,fasteners
+NUT-M6,M6 nut (box of 100),4.25,20,fasteners
+DRILL-18V,18V cordless drill,89.00,3,tools
+SAW-HAND,Hand saw 500mm,18.50,5,tools
+GLOVE-L,Work gloves size L,6.75,10,safety

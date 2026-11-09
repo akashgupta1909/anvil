@@ -26,12 +26,20 @@ async def test_one_shot_uses_and_removes_a_disposable_workspace(settings: Settin
     assert (EXAMPLE / "x.txt").exists() is False  # template untouched
 
 
+async def test_result_lists_changed_files(settings: Settings) -> None:
+    llm = FakeLLM(
+        [reply(None, ("write_file", '{"path": "notes/a.txt", "content": "1"}')), reply("ok")]
+    )
+    result = await service(settings, llm).run("write", AllowAll())
+    assert result.changed_files == ["notes/a.txt"]
+
+
 async def test_trace_is_written_with_request_id(settings: Settings) -> None:
     await service(settings, FakeLLM([reply("ok")])).run("hi", AllowAll(), request_id="req-1")
     trace = json.loads((settings.tracing.dir / "req-1.json").read_text())
     assert trace["attributes"]["status"] == "completed"
     assert [s["name"] for s in trace["spans"]] == ["invoke_agent"]
-    assert trace["attributes"]["system_prompt"].startswith("system@v1#")
+    assert trace["attributes"]["system_prompt"].startswith("system@v2#")
 
 
 async def test_session_keeps_workspace_and_memory(settings: Settings) -> None:

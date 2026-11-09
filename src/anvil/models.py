@@ -88,6 +88,7 @@ class AgentResult(BaseModel):
     usage: Usage
     usage_by_model: dict[str, Usage]
     tool_calls: list[ToolCallRecord]
+    changed_files: list[str] = []
     plan: list[str] | None = None
     error: str | None = None
     duration_ms: float

@@ -12,7 +12,7 @@ from anvil.tools.approval import AllowAll
 from anvil.tools.base import Approver, ToolContext
 from anvil.tools.workspace import Workspace
 
-EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "calculator"
+EXAMPLE = Path(__file__).resolve().parents[1] / "examples" / "inventory"
 
 
 def reply(content: str | None = None, *calls: tuple[str, str]) -> Message:
@@ -73,5 +73,5 @@ class FakeLLM:
 def make_ctx(
     workspace: Workspace, approver: Approver | None = None, **overrides: Any
 ) -> ToolContext:
-    params: dict[str, Any] = {"max_output_chars": 10_000, "run_timeout_seconds": 10} | overrides
+    params: dict[str, Any] = {"max_output_chars": 10_000} | overrides
     return ToolContext(workspace=workspace, approver=approver or AllowAll(), **params)

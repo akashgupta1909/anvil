@@ -110,6 +110,38 @@ async def test_retries_the_chain_after_rate_limits() -> None:
     assert len(calls) == 2
 
 
+async def test_rate_limited_endpoint_is_skipped_until_retry_after() -> None:
+    calls: list[str] = []
+
+    def limited(_: httpx2.Request) -> httpx2.Response:
+        calls.append("a")
+        return httpx2.Response(429, headers={"retry-after": "60"}, json={"error": {}})
+
+    def ok(_: httpx2.Request) -> httpx2.Response:
+        calls.append("b")
+        return completion("ok")
+
+    llm = FallbackLLM("main", [endpoint("a", limited), endpoint("b", ok)], 0)
+    await llm.complete(USER)
+    await llm.complete(USER)
+    assert calls == ["a", "b", "b"]  # second call goes straight to b
+
+
+async def test_all_endpoints_cooling_down_are_still_tried() -> None:
+    calls: list[str] = []
+
+    def limited(_: httpx2.Request) -> httpx2.Response:
+        calls.append("a")
+        if len(calls) == 1:
+            return httpx2.Response(429, headers={"retry-after": "60"}, json={"error": {}})
+        return completion("ok")
+
+    llm = FallbackLLM("main", [endpoint("a", limited)], 0)
+    with pytest.raises(LLMUnavailableError):
+        await llm.complete(USER)
+    assert (await llm.complete(USER)).message.content == "ok"
+
+
 async def test_failed_json_generation_is_retried() -> None:
     calls: list[int] = []
 

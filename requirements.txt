@@ -12,6 +12,8 @@ anyio==4.16.0
     #   starlette
 click==8.5.1
     # via uvicorn
+colorama==0.4.6 ; sys_platform == 'win32'
+    # via pytest
 fastapi==0.162.2
     # via anvil
 h11==0.16.0
@@ -28,12 +30,18 @@ idna==3.20
     # via
     #   anyio
     #   httpx2
+iniconfig==2.3.1
+    # via pytest
 jiter==0.19.0
     # via openai
 openai==3.46.0
     # via anvil
 opentelemetry-api==1.45.2
     # via fastapi
+packaging==26.3
+    # via pytest
+pluggy==1.7.0
+    # via pytest
 pydantic==2.14.3
     # via
     #   anvil
@@ -43,6 +51,10 @@ pydantic==2.14.3
 pydantic-core==2.50.4
     # via pydantic
 pydantic-settings==2.16.2
+    # via anvil
+pygments==2.21.0
+    # via pytest
+pytest==9.2.0
     # via anvil
 python-dotenv==1.2.4
     # via

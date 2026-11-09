@@ -10,10 +10,12 @@ class RunRequest(BaseModel):
 
     task: str = Field(min_length=1, max_length=8000, description="What the agent should do.")
     session_id: str | None = Field(
-        None, description="Continue a session (its workspace and memory). Omit for one-shot."
+        default=None,
+        description="Continue a session (its workspace and memory). Omit for one-shot.",
     )
     allow_writes: bool = Field(
-        False, description="Allow side-effecting tools (write_file, run_python_file)."
+        default=False,
+        description="Allow side-effecting tools (edit_file, write_file, run_command).",
     )
 
 

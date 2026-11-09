@@ -66,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
                 task_ids=args.task,
                 repeats=args.repeats,
                 use_judge=not args.no_judge,
+                resume=args.resume,
             )
         )
 
@@ -192,5 +193,8 @@ def _parser() -> argparse.ArgumentParser:
     )
     ev.add_argument("--task", action="append", help="only these task ids (repeatable)")
     ev.add_argument("--repeats", type=int, default=1)
+    ev.add_argument(
+        "--resume", type=Path, help="continue a previous run directory (skips completed runs)"
+    )
     ev.add_argument("--no-judge", action="store_true", help="skip the LLM judge")
     return parser

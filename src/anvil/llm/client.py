@@ -35,6 +35,7 @@ from anvil.utils.tracing import current_trace
 logger = logging.getLogger(__name__)
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$")
+_MAX_COOLDOWN_SECONDS = 600.0
 
 
 class LLMUnavailableError(RuntimeError):
@@ -97,9 +98,21 @@ class FallbackLLM:
         self._temperature = temperature
         self._retry_rounds = retry_rounds
         self._max_retry_wait = max_retry_wait
+        # Circuit breaker: endpoint -> monotonic time until which it is skipped, set from
+        # a 429's Retry-After so an exhausted quota is not retried first on every call.
+        self._cooldown: dict[Endpoint, float] = {}
 
     def _attempts(self) -> _Attempts:
-        return _Attempts(self.role, self.endpoints, self._retry_rounds + 1, self._max_retry_wait)
+        now = time.monotonic()
+        ready = [e for e in self.endpoints if self._cooldown.get(e, 0) <= now]
+        # If everything is cooling down, try them all anyway rather than fail outright.
+        return _Attempts(
+            self.role,
+            ready or self.endpoints,
+            self._retry_rounds + 1,
+            self._max_retry_wait,
+            self._cooldown,
+        )
 
     async def complete(
         self,
@@ -207,11 +220,19 @@ class _Attempts:
     """Yields endpoints in chain order, for up to ``rounds`` passes. Between passes it
     sleeps, but only if some failure in the last pass was retryable."""
 
-    def __init__(self, role: str, endpoints: list[Endpoint], rounds: int, max_wait: float) -> None:
+    def __init__(
+        self,
+        role: str,
+        endpoints: list[Endpoint],
+        rounds: int,
+        max_wait: float,
+        cooldown: dict[Endpoint, float],
+    ) -> None:
         self._role = role
         self._endpoints = endpoints
         self._rounds = rounds
         self._max_wait = max_wait
+        self._cooldown = cooldown
         self._errors: list[str] = []
         self._retryable = False
         self._retry_after = 0.0
@@ -237,7 +258,10 @@ class _Attempts:
         if isinstance(exc, _RETRYABLE) or _is_failed_generation(exc):
             self._retryable = True
         if isinstance(exc, openai.RateLimitError):
-            self._retry_after = max(self._retry_after, _retry_after_seconds(exc))
+            wait = _retry_after_seconds(exc)
+            self._retry_after = max(self._retry_after, wait)
+            if wait > 0:
+                self._cooldown[endpoint] = time.monotonic() + min(wait, _MAX_COOLDOWN_SECONDS)
         logger.warning(
             "llm endpoint failed, falling back",
             extra={
