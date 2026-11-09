@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help install lint format typecheck test check requirements
+.PHONY: help install lint format typecheck test check run eval requirements
 
 help:  ## Show targets
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-14s %s\n", $$1, $$2}'
@@ -23,8 +23,12 @@ test:  ## Unit tests (no network)
 
 check: lint typecheck test  ## Everything CI runs
 
+run:  ## Run one task: make run TASK="list the files"
+	uv run anvil run "$(TASK)"
 
 
+eval:  ## Evaluation suite: make eval ARGS="--ablation baseline --ablation planner"
+	uv run anvil eval $(ARGS)
 
 requirements:  ## Regenerate requirements.txt from the lock file
 	uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements.txt
