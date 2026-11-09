@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.13.6"
+      - run: uv sync --frozen
+      - run: make check
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t anvil:ci .
+      - name: Smoke test the image
+        run: |
+          docker run -d --name api -p 8000:8000 -e ANVIL_API_KEY=ci anvil:ci
+          for i in $(seq 1 20); do curl -fsS localhost:8000/health && exit 0; sleep 1; done
+          docker logs api; exit 1

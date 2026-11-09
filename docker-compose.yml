@@ -1,0 +1,19 @@
+services:
+  api:
+    build: .
+    image: anvil:latest
+    ports:
+      - "8000:8000"
+    env_file: .env          # GROQ_API_KEY, OPENROUTER_API_KEY
+    environment:
+      # Required: the bearer token clients send. Read from the shell or .env.
+      ANVIL_API_KEY: ${ANVIL_API_KEY:?set ANVIL_API_KEY in .env}
+    volumes:
+      - ./logs:/app/logs    # traces and logs survive restarts
+    read_only: true         # only logs and the agent workspaces are writable
+    tmpfs:
+      - /app/.workspaces:uid=10001,gid=10001
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped

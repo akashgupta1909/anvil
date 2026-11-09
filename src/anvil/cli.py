@@ -1,4 +1,4 @@
-"""Command-line entry point: ``run``, ``chat`` and ``eval`` subcommands."""
+"""Command-line entry point: ``run``, ``chat``, ``serve`` and ``eval`` subcommands."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from anvil.config import load_settings
+from anvil.config import Settings, load_settings
 from anvil.container import build_container
 from anvil.models import (
     AgentEvent,
@@ -52,8 +52,10 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValidationError) as exc:
         print(f"Invalid configuration: {exc}", file=sys.stderr)
         return 2
-    configure_logging("WARNING")
+    configure_logging("INFO" if args.command == "serve" else "WARNING")
 
+    if args.command == "serve":
+        return _serve(settings, args.host, args.port)
     if args.command == "eval":
         from anvil.evaluation.runner import run_evaluation
 
@@ -147,6 +149,16 @@ def _print_summary(result: AgentResult) -> None:
     )
 
 
+def _serve(settings: Settings, host: str, port: int) -> int:
+    import uvicorn
+
+    from anvil.api.app import create_app
+
+    configure_logging(settings.logging.level)
+    uvicorn.run(create_app(build_container(settings)), host=host, port=port, log_config=None)
+    return 0
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="anvil", description=__doc__)
     parser.add_argument("--config", type=Path, help="config file (default: config.yaml)")
@@ -169,6 +181,10 @@ def _parser() -> argparse.ArgumentParser:
     add_agent_options(run)
 
     add_agent_options(sub.add_parser("chat", help="interactive session with memory"))
+
+    serve = sub.add_parser("serve", help="start the HTTP API")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8000)
 
     ev = sub.add_parser("eval", help="run the evaluation suite")
     ev.add_argument(
