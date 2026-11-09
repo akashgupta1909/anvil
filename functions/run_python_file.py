@@ -5,6 +5,30 @@ import sys
 TIMEOUT_SECONDS = 30
 
 
+schema_run_python_file = {
+    "type": "function",
+    "function": {
+        "name": "run_python_file",
+        "description": "Executes a Python file relative to the working directory and returns its stdout and stderr",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "file_path": {
+                    "type": "string",
+                    "description": "Path to the Python (.py) file to run, relative to the working directory",
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of command-line arguments to pass to the Python file",
+                },
+            },
+            "required": ["file_path"],
+        },
+    },
+}
+
+
 def run_python_file(
     working_directory: str, file_path: str, args: list[str] | None = None
 ) -> str:
