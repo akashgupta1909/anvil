@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from dataclasses import dataclass
@@ -6,6 +7,9 @@ from dataclasses import dataclass
 from dotenv import load_dotenv
 from openai import OpenAI
 from openai.types.chat import ChatCompletion
+
+from call_function import available_functions
+from prompts import system_prompt
 
 
 @dataclass(frozen=True)
@@ -59,6 +63,8 @@ def ask(provider: Provider, messages: list[dict[str, str]]):
     response = client.chat.completions.create(
         model=provider.model,
         messages=messages,
+        tools=available_functions,
+        temperature=0,
     )
     if response.usage is None:
         raise RuntimeError(
@@ -81,7 +87,10 @@ def ask_with_fallback(providers: list[Provider], messages: list[dict[str, str]])
 
 
 def build_messages(user_prompt: str) -> list[dict[str, str]]:
-    return [{"role": "user", "content": user_prompt}]
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
 
 def print_output(response: ChatCompletion, user_prompt: str, verbose: bool = False):
@@ -90,7 +99,13 @@ def print_output(response: ChatCompletion, user_prompt: str, verbose: bool = Fal
         print(f"Prompt Tokens: {response.usage.prompt_tokens}")
         print(f"Output Tokens: {response.usage.completion_tokens}")
 
-    print(response.choices[0].message.content)
+    message = response.choices[0].message
+    if message.tool_calls:
+        for tool_call in message.tool_calls:
+            function_args = json.loads(tool_call.function.arguments or "{}")
+            print(f"Calling function: {tool_call.function.name}({function_args})")
+    else:
+        print(message.content)
 
 
 def main() -> None:
