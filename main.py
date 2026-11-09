@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 from dataclasses import dataclass
@@ -107,6 +108,11 @@ def print_usage(response: ChatCompletion) -> None:
     print(f"Output Tokens: {response.usage.completion_tokens}")
 
 
+def print_messages(messages: list) -> None:
+    print("\n--- Final messages ---")
+    print(json.dumps(messages, indent=2, default=str))
+
+
 def run_agent(providers: list[Provider], user_prompt: str, verbose: bool) -> None:
     messages = build_messages(user_prompt)
     if verbose:
@@ -122,6 +128,8 @@ def run_agent(providers: list[Provider], user_prompt: str, verbose: bool) -> Non
 
         if not message.tool_calls:
             print(message.content)
+            if verbose:
+                print_messages(messages)
             return
 
         for tool_call in message.tool_calls:
@@ -134,6 +142,8 @@ def run_agent(providers: list[Provider], user_prompt: str, verbose: bool) -> Non
                 print(f"-> {result_message['content']}")
             messages.append(result_message)
 
+    if verbose:
+        print_messages(messages)
     print(
         f"Error: agent did not produce a final response after {MAX_ITERATIONS} iterations",
         file=sys.stderr,
